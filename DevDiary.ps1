@@ -1,5 +1,6 @@
 # =============================================================================
 # DevDiary.ps1
+# Author: Siddharth
 # Your personal work black box. Run it at the end of each day.
 #
 # Usage:

@@ -1,5 +1,6 @@
 # =============================================================================
 # Organize-Downloads.ps1
+# Author: Siddharth
 # Run this script monthly to organize your Downloads folder.
 #
 # What it does:

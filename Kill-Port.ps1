@@ -1,5 +1,6 @@
 # =============================================================================
 # Kill-Port.ps1
+# Author: Siddharth
 # Find what is using a port and kill it.
 #
 # Usage:
