@@ -58,21 +58,35 @@ Find what is using a port and kill it. Supports TCP and UDP.
 
 ### Organize-Downloads.ps1
 
-Cleans up your Downloads folder by moving old files into extension-based subfolders.
+Cleans up your Downloads folder by grouping old files into broad category folders.
 
 **What it does:**
-- Moves files older than 30 days into folders named by extension (PDF, ZIP, XLSX, etc.)
-- Moves old folders into a `Folders\` subfolder
+- **Consolidates** existing extension-named folders (PNG, SVG, PHP, SQL, ZIP, etc.) into broad categories — e.g. `PNG\` and `SVG\` merge into `Images\`, `PHP\` and `TS\` into `Code\`, `ZIP\` into `Archives\`
+- Moves files older than 30 days into category folders: `Images`, `Videos`, `Audio`, `Documents`, `Archives`, `Code`, `Executables`, `Data`
+- Moves old subfolders into a `Folders\` subfolder
 - Files with unusual/no extensions go into `Others\`
-- Skips managed folders (Scripts, PDF, ZIP, etc.) to avoid double-moving
 - Handles duplicate filename conflicts automatically
+
+**Category mapping:**
+| Folder | Extensions |
+|---|---|
+| Images | jpg, jpeg, png, gif, bmp, webp, svg, ico, tiff, avif, heic, raw, … |
+| Videos | mp4, mkv, avi, mov, wmv, flv, webm, … |
+| Audio | mp3, m4a, wav, ogg, flac, aac, wma, opus |
+| Documents | pdf, docx, xlsx, pptx, txt, md, csv, epub, one, … |
+| Archives | zip, rar, tar, gz, 7z, iso, … |
+| Code | py, js, ts, css, html, php, java, sql, json, yaml, ps1, bat, sh, … |
+| Executables | exe, msi, vsix, apk, rdp, dll |
+| Data | db, sqlite, log, eml, ics, jar, torrent |
 
 **Usage:**
 ```powershell
-.\Organize-Downloads.ps1     # run it (no parameters needed)
+.\Organize-Downloads.ps1          # run manually (any day)
+.\Organize-Downloads.ps1 -Force   # bypass the monthly schedule guard
 ```
 
-> Recommended: schedule monthly via Task Scheduler.
+**Scheduling:**
+Set up a daily Task Scheduler trigger — the script runs its full logic only on the **first Monday on or after the 1st** of each month, so it never lands on a weekend.
 
 ---
 
