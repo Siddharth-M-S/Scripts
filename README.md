@@ -10,12 +10,12 @@ Every time you open a terminal, a random quote from One Piece is shown in a styl
 
 ![One Piece terminal quote preview](assets/onepiece-preview.png)
 
-Two versions are included:
+Two versions are included — one for Windows PowerShell, one for Bash (WSL / Linux / macOS):
 
-| File | Shell | Setup |
+| File | Shell | When to use |
 |---|---|---|
-| `onepiece-fortune.ps1` | PowerShell 5.1 (Windows) | Called from `$PROFILE` |
-| `onepiece-fortune.sh` | Bash (WSL / Linux / macOS) | Sourced from `~/.bashrc` or `~/.zshrc` |
+| `onepiece-fortune.ps1` | PowerShell 5.1 (Windows) | Windows Terminal, VS Code terminal, any PowerShell prompt |
+| `onepiece-fortune.sh` | Bash | WSL, Git Bash, Linux, macOS |
 
 **PowerShell setup** — add this line to your `$PROFILE`:
 ```powershell
@@ -123,9 +123,15 @@ Set up a daily Task Scheduler trigger — the script runs its full logic only on
 
 ---
 
-### onepiece-fortune.ps1 / onepiece-fortune.sh
+### onepiece-fortune.ps1
 
-Random One Piece quote displayed every time you open a terminal. See the [One Piece Terminal Fortune](#one-piece-terminal-fortune) section at the top for setup instructions.
+Random One Piece quote displayed every time you open a PowerShell terminal. See the [One Piece Terminal Fortune](#one-piece-terminal-fortune) section at the top for setup instructions.
+
+---
+
+### onepiece-fortune.sh
+
+Same as above but for Bash (WSL / Linux / macOS). Source it from `~/.bashrc` or `~/.zshrc`.
 
 ---
 
