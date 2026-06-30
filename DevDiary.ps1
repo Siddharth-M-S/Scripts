@@ -12,7 +12,7 @@
 # What it records automatically:
 #   - Meetings from Outlook calendar (today)
 #   - Teams calls accepted today (from local MSTeams logs)
-#   - Git activity from C:\Users\z047358\OneDrive - Alliance\Desktop\clone
+#   - Git activity from your project folder (set $projectPath below before first run)
 #   - "What I Did" auto-filled from today's commit messages (bullet list)
 #   - Active dev servers (ports)
 #
@@ -810,8 +810,9 @@ Ensure-Dir $dailyDir
 Write-Header "DevDiary - End of Day Log"
 
 # --- Collect auto data ---
-# Hardcoded repo path - no prompt needed
-$projectPath = "C:\Users\z047358\OneDrive - Alliance\Desktop\clone\etf-angular"
+# TODO: Set this to your local project/repo folder before first run
+# Example: "C:\Users\YourName\Projects\my-app"
+$projectPath = "C:\path\to\your\project"
 
 Write-Section "Scanning your day..."
 Write-Host "  Reading Outlook calendar..."

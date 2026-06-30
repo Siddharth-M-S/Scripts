@@ -73,6 +73,11 @@ Ideas for what to put in:
 
 Your personal work black box. Run it at the end of each day to automatically log your activity.
 
+> **Before first run:** open `DevDiary.ps1` and set `$projectPath` near the bottom of the file to your local project/repo folder:
+> ```powershell
+> $projectPath = "C:\path\to\your\project"
+> ```
+
 **What it records automatically:**
 - Meetings from Outlook calendar (today)
 - Teams calls accepted today (from local MSTeams logs)
