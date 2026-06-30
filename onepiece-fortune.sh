@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # -----------------------------------------------
 #  One Piece Terminal Fortune
+# Author: Siddharth
 #  Drop a random One Piece quote every terminal open
 # -----------------------------------------------
 

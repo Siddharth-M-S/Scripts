@@ -1,6 +1,39 @@
 # Scripts
 
-A collection of personal PowerShell utility scripts for Windows.
+A collection of personal PowerShell/Bash utility scripts for Windows — plus a One Piece terminal fortune that greets you every time you open a shell.
+
+---
+
+## One Piece Terminal Fortune
+
+Every time you open a terminal, a random quote from One Piece is shown in a styled box.
+
+![One Piece terminal quote preview](assets/onepiece-preview.png)
+
+Two versions are included:
+
+| File | Shell | Setup |
+|---|---|---|
+| `onepiece-fortune.ps1` | PowerShell 5.1 (Windows) | Called from `$PROFILE` |
+| `onepiece-fortune.sh` | Bash (WSL / Linux / macOS) | Sourced from `~/.bashrc` or `~/.zshrc` |
+
+**PowerShell setup** — add this line to your `$PROFILE`:
+```powershell
+& "$HOME\onepiece-fortune.ps1"
+```
+
+**Bash setup** — add this line to your `~/.bashrc` or `~/.zshrc`:
+```bash
+source ~/onepiece-fortune.sh
+```
+
+Features:
+- 200+ quotes spanning the entire series
+- Characters include Luffy, Zoro, Sanji, Robin, Whitebeard, Roger, Law, Jinbe, and many more
+- Red border box, yellow character attribution, cyan `~ ONE PIECE ~` footer
+- One random quote per terminal open
+
+---
 
 ## Scripts
 
@@ -90,8 +123,15 @@ Set up a daily Task Scheduler trigger — the script runs its full logic only on
 
 ---
 
+### onepiece-fortune.ps1 / onepiece-fortune.sh
+
+Random One Piece quote displayed every time you open a terminal. See the [One Piece Terminal Fortune](#one-piece-terminal-fortune) section at the top for setup instructions.
+
+---
+
 ## Requirements
 
 - Windows 10/11
 - PowerShell 5.1 or later
 - For `DevDiary.ps1`: Microsoft Outlook and Microsoft Excel installed (for calendar/spreadsheet features)
+- For `onepiece-fortune.sh`: Bash (WSL, Git Bash, Linux, or macOS)
