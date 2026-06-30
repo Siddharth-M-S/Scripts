@@ -33,6 +33,38 @@ Features:
 - Red border box, yellow character attribution, cyan `~ ONE PIECE ~` footer
 - One random quote per terminal open
 
+### Make it yours
+
+The quote list is just an array at the top of the file — swap it out for anything you like:
+
+**PowerShell (`onepiece-fortune.ps1`)** — each entry is a hashtable:
+```powershell
+$quotes = @(
+    @{ quote = "Your quote here"; character = "Character / Source" }
+    @{ quote = "It works on my machine."; character = "Every Developer Ever" }
+    @{ quote = "Plus Ultra!"; character = "All Might — My Hero Academia" }
+    @{ quote = "Why so serious?"; character = "Joker — The Dark Knight" }
+)
+```
+
+**Bash (`onepiece-fortune.sh`)** — each entry is a pipe-delimited string:
+```bash
+QUOTES=(
+  "Your quote here||Character / Source"
+  "It works on my machine.||Every Developer Ever"
+  "Plus Ultra!||All Might — My Hero Academia"
+  "Why so serious?||Joker — The Dark Knight"
+)
+```
+
+Ideas for what to put in:
+| Theme | Examples |
+|---|---|
+| Anime | Attack on Titan, Naruto, Demon Slayer, HXH, Vinland Saga |
+| Dev jokes | "It works on my machine", "99 bugs in the code…" |
+| Movies / TV | The Dark Knight, Interstellar, Breaking Bad, Suits |
+| Motivational | Stoic quotes, startup mantras, whatever keeps you going |
+
 ---
 
 ## Scripts
