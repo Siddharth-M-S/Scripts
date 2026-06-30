@@ -79,42 +79,75 @@ function Ask($prompt, $default = '') {
 
 function Get-TodaysMeetings {
     $meetings = @()
+    $outlookWasStartedByUs = $false
     try {
-        $outlook  = New-Object -ComObject Outlook.Application -ErrorAction Stop
+        # Try to get a running Outlook instance first; if none, launch it and wait for sync.
+        $outlook = $null
+        try {
+            $outlook = [System.Runtime.InteropServices.Marshal]::GetActiveObject('Outlook.Application')
+        } catch {
+            # Outlook not running - launch it visibly so it can authenticate and sync Exchange
+            Write-Host "  [INFO] Launching Outlook to sync calendar..."
+            Start-Process "C:\Program Files\Microsoft Office\Root\Office16\OUTLOOK.EXE"
+            $outlookWasStartedByUs = $true
+
+            # Poll until Outlook registers as a COM server (up to 45 s)
+            $outlook = $null
+            for ($i = 0; $i -lt 9; $i++) {
+                Start-Sleep -Seconds 5
+                try {
+                    $outlook = [System.Runtime.InteropServices.Marshal]::GetActiveObject('Outlook.Application')
+                    break
+                } catch {}
+            }
+            if (-not $outlook) { throw "Outlook did not start in time." }
+
+            # Give Exchange a moment to sync after login
+            Start-Sleep -Seconds 15
+            Write-Host "  [INFO] Outlook ready."
+        }
+
         $ns       = $outlook.GetNamespace('MAPI')
-        $calendar = $ns.GetDefaultFolder(9) # 9 = olFolderCalendar
-        $start    = $now.Date
-        $end      = $start.AddDays(1)
+        try { $ns.Logon('Outlook', [System.Reflection.Missing]::Value, $false, $false) } catch {}
 
-        $items = $calendar.Items
-        # IncludeRecurrences MUST be set before Sort for recurring items to expand correctly
-        $items.IncludeRecurrences = $true
-        $items.Sort('[Start]')
+        $today = $now.Date
+        $end   = $today.AddDays(1)
 
-        # Outlook Restrict filter requires US locale date format MM/dd/yyyy h:mm tt
-        # Using ToString('g') is locale-sensitive and silently returns 0 results on non-US machines
-        $filterStart = $start.ToString('MM/dd/yyyy h:mm tt')
-        $filterEnd   = $end.ToString('MM/dd/yyyy h:mm tt')
-        $filter      = "[Start] >= '$filterStart' AND [Start] < '$filterEnd'"
-        $filtered    = $items.Restrict($filter)
-
-        foreach ($item in $filtered) {
+        # Collect calendar items from every store (handles shared/delegate calendars too)
+        foreach ($store in $ns.Stores) {
             try {
-                $durationMins = [int](($item.End - $item.Start).TotalMinutes)
-                $meetings += [PSCustomObject]@{
-                    Time     = $item.Start.ToString('HH:mm')
-                    Subject  = $item.Subject
-                    Duration = $durationMins
-                    Status   = switch ($item.MeetingStatus) {
-                        0 { 'Appointment' }
-                        1 { 'Meeting' }
-                        3 { 'Accepted' }
-                        5 { 'Tentative' }
-                        default { 'Meeting' }
-                    }
+                $cal   = $store.GetDefaultFolder(9)  # 9 = olFolderCalendar
+                $items = $cal.Items
+                $items.IncludeRecurrences = $true
+                $items.Sort('[Start]')
+
+                # NOTE: Outlook's Restrict filter silently fails (returns max-int count) when
+                # the store hasn't fully synced. We filter in PowerShell instead — safe and
+                # works regardless of sync state or system locale.
+                foreach ($item in $items) {
+                    try {
+                        if ($item.Start -ge $today -and $item.Start -lt $end) {
+                            $durationMins = [int](($item.End - $item.Start).TotalMinutes)
+                            $meetings += [PSCustomObject]@{
+                                Time     = $item.Start.ToString('HH:mm')
+                                Subject  = $item.Subject
+                                Duration = $durationMins
+                                Status   = switch ($item.MeetingStatus) {
+                                    0 { 'Appointment' }
+                                    1 { 'Meeting' }
+                                    3 { 'Accepted' }
+                                    5 { 'Tentative' }
+                                    default { 'Meeting' }
+                                }
+                            }
+                        }
+                    } catch {}
                 }
             } catch {}
         }
+
+        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($ns) | Out-Null
+        # Do NOT quit Outlook if the user had it open already
         [System.Runtime.InteropServices.Marshal]::ReleaseComObject($outlook) | Out-Null
     } catch {
         Write-Host "  [WARN] Could not read Outlook: $_"
@@ -125,51 +158,88 @@ function Get-TodaysMeetings {
 function Get-TeamsCallsToday {
     # Teams 2.0 (New Teams) stores call events in MSTeams_*.log under LocalCache.
     # Contact names are NOT stored locally (server-side only in Teams 2.0).
-    # We track unique call IDs that were accepted today and report timestamps + count.
+    # We track unique call IDs that were accepted today, compute duration from reportCallEnded.
     $calls = @()
     $logDir = "$env:LOCALAPPDATA\Packages\MSTeams_8wekyb3d8bbwe\LocalCache\Microsoft\MSTeams\Logs"
     if (-not (Test-Path -LiteralPath $logDir)) { return $calls }
 
-    # Only read log files that were modified today or yesterday (covers overnight sessions)
-    $cutoff   = $now.Date.AddDays(-1)
+    # FIX: Use filename date prefix, NOT LastWriteTime.
+    # Teams rolls log files mid-day - a log named 2026-06-19_xx can have LastWriteTime of 2026-06-20.
+    # We include any log whose filename starts with today's date, plus yesterday to catch overnight sessions.
+    $todayPrefix     = $now.ToString('yyyy-MM-dd')
+    $yesterdayPrefix = $now.Date.AddDays(-1).ToString('yyyy-MM-dd')
+
     $logFiles = Get-ChildItem -Path $logDir -Filter 'MSTeams_*.log' -ErrorAction SilentlyContinue |
-                Where-Object { $_.LastWriteTime -ge $cutoff } |
-                Sort-Object LastWriteTime
+                Where-Object { $_.Name -match "^MSTeams_($todayPrefix|$yesterdayPrefix)" } |
+                Sort-Object Name
 
-    # Date prefix we expect in log lines for today e.g. "2026-06-19"
-    $todayPrefix = $now.ToString('yyyy-MM-dd')
-
-    # Track accepted callIds so we only count each unique call once
-    $acceptedIds = @{}
+    # callId -> [datetime] start  (covers both incoming accepted + outgoing connected)
+    $startedIds = @{}
+    # callId -> [datetime] end
+    $endedIds   = @{}
+    # callId -> direction label
+    $directions = @{}
 
     foreach ($f in $logFiles) {
         try {
-            $lines = [System.IO.File]::ReadLines($f.FullName)
+            $lines = [System.IO.File]::ReadAllLines($f.FullName)
             foreach ($line in $lines) {
                 # Only process lines from today
                 if (-not $line.StartsWith($todayPrefix)) { continue }
 
-                # reportCallAccepted means the call was actually answered (not just ringing)
+                # Parse ISO timestamp from log line
+                $lineTime = $null
+                if ($line -match '^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})') {
+                    try { $lineTime = [datetime]::Parse($Matches[1]) } catch {}
+                }
+
+                # Incoming call answered
                 if ($line -match 'reportCallAccepted for callId:\s*([\w-]+)') {
                     $callId = $Matches[1]
-                    if (-not $acceptedIds.ContainsKey($callId)) {
-                        # Parse time from log line: "2026-06-19T11:43:33.901609+05:30"
-                        $time = ''
-                        if ($line -match '^(\d{4}-\d{2}-\d{2}T(\d{2}:\d{2}):\d{2})') {
-                            $time = $Matches[2]
-                        }
-                        $acceptedIds[$callId] = $time
-                        $calls += [PSCustomObject]@{
-                            Time     = $time
-                            Subject  = 'Teams call'
-                            Duration = 0
-                            Status   = 'Teams'
-                        }
+                    if (-not $startedIds.ContainsKey($callId)) {
+                        $startedIds[$callId]  = $lineTime
+                        $directions[$callId]  = 'incoming'
+                    }
+                }
+
+                # Outgoing call connected (other end picked up)
+                if ($line -match 'ReportOutgoingCallConnected for callId:\s*([\w-]+)') {
+                    $callId = $Matches[1]
+                    if (-not $startedIds.ContainsKey($callId)) {
+                        $startedIds[$callId]  = $lineTime
+                        $directions[$callId]  = 'outgoing'
+                    }
+                }
+
+                # Call ended — used to compute duration for both directions
+                if ($line -match 'reportCallEnded for callId:\s*([\w-]+)') {
+                    $callId = $Matches[1]
+                    if (-not $endedIds.ContainsKey($callId)) {
+                        $endedIds[$callId] = $lineTime
                     }
                 }
             }
         } catch {}
     }
+
+    # Build call objects with duration and direction
+    foreach ($callId in $startedIds.Keys) {
+        $start     = $startedIds[$callId]
+        $timeStr   = if ($start) { $start.ToString('HH:mm') } else { '' }
+        $direction = $directions[$callId]
+        $duration  = 0
+        if ($start -and $endedIds.ContainsKey($callId) -and $endedIds[$callId]) {
+            $duration = [int](($endedIds[$callId] - $start).TotalMinutes)
+            if ($duration -lt 0) { $duration = 0 }
+        }
+        $calls += [PSCustomObject]@{
+            Time     = $timeStr
+            Subject  = "Teams call ($direction)"
+            Duration = $duration
+            Status   = 'Teams'
+        }
+    }
+
     return $calls | Sort-Object Time
 }
 
@@ -741,7 +811,7 @@ Write-Header "DevDiary - End of Day Log"
 
 # --- Collect auto data ---
 # Hardcoded repo path - no prompt needed
-$projectPath = "C:\Users\z047358\OneDrive - Alliance\Desktop\clone"
+$projectPath = "C:\Users\z047358\OneDrive - Alliance\Desktop\clone\etf-angular"
 
 Write-Section "Scanning your day..."
 Write-Host "  Reading Outlook calendar..."
